@@ -18,6 +18,9 @@ from visualize_episodes import save_videos
 
 from sim_env import BOX_POSE
 
+import sys
+sys.path.append('../aloha')    
+
 import IPython
 e = IPython.embed
 
@@ -100,9 +103,8 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, 1, 1)
 
-    import pdb; pdb.set_trace()
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
         os.makedirs(ckpt_dir)
