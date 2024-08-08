@@ -35,14 +35,16 @@ class ACTPolicy(nn.Module):
         mean=np.array([0.485, 0.456, 0.406])
         std=np.array([0.229, 0.224, 0.225])
         v2r_transform = transforms.Compose([
-            transforms.ToTensor(),
             transforms.Resize(224),
             transforms.Normalize(mean=mean, std=std)
         ])
-        image = v2r_transform(image)
+        image = v2r_transform(image.squeeze(0)).unsqueeze(0)
+        
         if actions is not None: # training time
             actions = actions[:, :self.model.num_queries]
             is_pad = is_pad[:, :self.model.num_queries]
+            actions = actions.to(torch.float32)
+            qpos = qpos.to(torch.float32)
 
             a_hat, is_pad_hat, (mu, logvar) = self.model(qpos, image, env_state, actions, is_pad)
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
@@ -134,8 +136,3 @@ def kl_divergence(mu, logvar):
     mean_kld = klds.mean(1).mean(0, True)
 
     return total_kld, dimension_wise_kld, mean_kld
-
-
-if __name__ == '__main__':
-    policy = ACTPolicy()
-    

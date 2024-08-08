@@ -1,7 +1,7 @@
 import pathlib
 
 ### Task parameters
-DATA_DIR = '../data/'
+DATA_DIR = '<put your data dir here>'
 SIM_TASK_CONFIGS = {
     'sim_transfer_cube_scripted':{
         'dataset_dir': DATA_DIR + '/sim_transfer_cube_scripted',
@@ -30,15 +30,6 @@ SIM_TASK_CONFIGS = {
         'episode_len': 500,
         'camera_names': ['top']
     },
-
-    'noisy_pick_place': {
-        'dataset_dir': DATA_DIR + '/noisy_pick_place',
-        'num_episodes': 110,
-        'episode_len': 200,
-        'camera_names': ['camouter']
-    }
-
-
 }
 
 ### Simulation envs fixed constants
