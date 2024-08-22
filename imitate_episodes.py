@@ -103,7 +103,7 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, 1, 1)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val)
 
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
@@ -316,13 +316,14 @@ def eval_bc(config, ckpt_name, save_episode=True):
     return success_rate, avg_return
 
 
-def forward_pass(data, policy):
-    image_data, qpos_data, action_data, is_pad = data
-    image_data, qpos_data, action_data, is_pad = image_data.cuda(), qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
-    return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
+def forward_pass(data, policy, weighting_reward_model=None):
+    image_data, qpos_data, action_data, is_pad, init_frame = data
+    image_data, qpos_data, action_data, is_pad, init_frame = image_data.cuda(), qpos_data.cuda(), action_data.cuda(), is_pad.cuda(), init_frame.cuda().to(torch.float32)
+    return policy(qpos_data, image_data, action_data, is_pad, init_frame, weighting_reward_model) # TODO remove None
 
 
-def train_bc(train_dataloader, val_dataloader, config):
+def train_bc(train_dataloader, val_dataloader, config, weighted=True):
+    torch.cuda.empty_cache()
     num_epochs = config['num_epochs']
     ckpt_dir = config['ckpt_dir']
     seed = config['seed']
@@ -330,6 +331,17 @@ def train_bc(train_dataloader, val_dataloader, config):
     policy_config = config['policy_config']
 
     set_seed(seed)
+
+    v2r_reward_model = None
+    if weighted:
+        import sys
+        sys.path.append('../v2r/Video2Reward/')     #TODO: change this to the path of the Video2Reward folder
+        import reward_model as v2r_model
+        v2r_reward_model = v2r_model.Model(model_type="resnet34")
+        checkpoint = torch.load('../model_499.pth')  #TODO: change this to the path of the model
+        v2r_reward_model.load_state_dict(checkpoint['model_state_dict'])  
+        v2r_reward_model.eval()
+        v2r_reward_model.to('cuda')
 
     policy = make_policy(policy_class, policy_config)
     policy.cuda()
@@ -346,7 +358,7 @@ def train_bc(train_dataloader, val_dataloader, config):
             policy.eval()
             epoch_dicts = []
             for batch_idx, data in enumerate(val_dataloader):
-                forward_dict = forward_pass(data, policy)
+                forward_dict = forward_pass(data, policy, v2r_reward_model)
                 epoch_dicts.append(forward_dict)
             epoch_summary = compute_dict_mean(epoch_dicts)
             validation_history.append(epoch_summary)
@@ -365,7 +377,7 @@ def train_bc(train_dataloader, val_dataloader, config):
         policy.train()
         optimizer.zero_grad()
         for batch_idx, data in enumerate(train_dataloader):
-            forward_dict = forward_pass(data, policy)
+            forward_dict = forward_pass(data, policy, v2r_reward_model)
             # backward
             loss = forward_dict['loss']
             loss.backward()
